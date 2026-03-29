@@ -14,6 +14,9 @@ async function bootstrap(): Promise<void> {
     exclude: [
       { path: 'docs', method: RequestMethod.ALL },
       { path: 'docs-json', method: RequestMethod.ALL },
+      { path: '/', method: RequestMethod.ALL },
+      { path: 'health', method: RequestMethod.ALL },
+      { path: 'health/ready', method: RequestMethod.ALL },
     ],
   });
 
