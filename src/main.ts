@@ -2,12 +2,38 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger, RequestMethod } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import type { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+
+function buildCorsOptions(): CorsOptions {
+  const raw = process.env.CORS_ORIGINS?.trim();
+  const origins = raw
+    ? raw
+        .split(',')
+        .map((o) => o.trim())
+        .filter(Boolean)
+    : [];
+
+  const origin: CorsOptions['origin'] =
+    origins.length === 0
+      ? true
+      : origins.length === 1
+        ? origins[0]
+        : origins;
+
+  return {
+    origin,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
+  };
+}
 
 async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
+
+  app.enableCors(buildCorsOptions());
 
   const apiPrefix = process.env.API_PREFIX ?? 'api/v1';
   app.setGlobalPrefix(apiPrefix, {
