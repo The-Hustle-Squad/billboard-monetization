@@ -14,8 +14,7 @@ import { ApiKeyGuard } from './common/guards/api-key.guard';
   imports: [
     ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }),
     MongooseModule.forRoot(
-      process.env.MONGO_URI ??
-        'mongodb+srv://root:root@miraki-training.gn5hy.mongodb.net/lead-crud-sprint-1?retryWrites=true&w=majority&appName=Miraki-Training',
+      process.env.MONGO_URI as string,
     ),
     AuthModule,
     VendorModule,
