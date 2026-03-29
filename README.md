@@ -9,8 +9,8 @@ Rule-based dynamic discounting for time-based inventory. Built with **NestJS**, 
 | Resource | Location |
 |----------|----------|
 | **Human-readable reference** (payloads, errors, flows) | [docs/API.md](docs/API.md) |
-| **OpenAPI UI** | `http://localhost:<PORT>/docs` |
-| **OpenAPI JSON** (codegen, Postman, Insomnia) | `http://localhost:<PORT>/docs-json` |
+| **OpenAPI UI** | `https://billboard-monetization.onrender.com/docs` |
+| **OpenAPI JSON** (codegen, Postman, Insomnia) | `https://billboard-monetization.onrender.com/docs-json` |
 
 - REST routes use the global prefix `/<API_PREFIX>/…` (default **`/api/v1`**).
 - Swagger is served at **`/docs`** and **`/docs-json`** (these paths are **not** prefixed with `API_PREFIX`).
