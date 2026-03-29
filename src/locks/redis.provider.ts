@@ -1,17 +1,29 @@
 import { Provider, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 
 export const REDIS_CLIENT = 'REDIS_CLIENT';
 
 export const RedisProvider: Provider = {
   provide: REDIS_CLIENT,
-  useFactory: (): Redis => {
+  inject: [ConfigService],
+  useFactory: (config: ConfigService): Redis => {
     const logger = new Logger('RedisProvider');
+    const host = config.get<string>('REDIS_HOST', 'localhost');
+    const port = parseInt(config.get<string>('REDIS_PORT', '6379'), 10);
+    const password = config.get<string>('REDIS_PASSWORD') || undefined;
+    const username = config.get<string>('REDIS_USER') || undefined;
+
+    // Only enable TLS when explicitly requested. Auto-TLS on remote hosts breaks
+    // plain-TCP endpoints (OpenSSL: "wrong version number").
+    const useTls = config.get<string>('REDIS_TLS') === 'true';
 
     const client = new Redis({
-      host: process.env.REDIS_HOST ?? 'localhost',
-      port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
-      password: process.env.REDIS_PASSWORD || undefined,
+      host,
+      port,
+      password,
+      ...(username ? { username } : {}),
+      ...(useTls ? { tls: {} } : {}),
       lazyConnect: true,
       enableReadyCheck: true,
       maxRetriesPerRequest: 3,

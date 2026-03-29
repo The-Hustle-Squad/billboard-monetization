@@ -14,11 +14,36 @@ import { PricingService, PricingResult } from '../pricing/pricing.service';
 import { LockService } from '../locks/lock.service';
 import { SyncSlotItemDto } from './dto/sync-slots.dto';
 import { ConfirmSlotDto } from './dto/confirm-slot.dto';
+import { SlotStatus } from './schemas/slot.schema';
 
 export interface SyncSummary {
   created: number;
   updated: number;
   skipped: number;
+}
+
+export interface SlotListItem {
+  _id: string;
+  slotId: string;
+  startTime: Date;
+  endTime: Date;
+  basePrice: number;
+  status: SlotStatus;
+  lockId: string | null;
+  lockedUntil: Date | null;
+  bookedAt: Date | null;
+  discountApplied: number | null;
+  finalPrice: number | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface PaginatedSlotsResult {
+  items: SlotListItem[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
 
 @Injectable()
@@ -31,6 +56,38 @@ export class SlotService {
     private readonly pricingService: PricingService,
     private readonly lockService: LockService,
   ) {}
+
+  async listSlots(
+    vendor: VendorDocument,
+    page: number,
+    limit: number,
+  ): Promise<PaginatedSlotsResult> {
+    const safePage = Math.max(1, page);
+    const safeLimit = Math.min(100, Math.max(1, limit));
+    const skip = (safePage - 1) * safeLimit;
+    const filter = { vendorId: vendor._id };
+
+    const [docs, total] = await Promise.all([
+      this.slotModel
+        .find(filter)
+        .sort({ startTime: -1 })
+        .skip(skip)
+        .limit(safeLimit)
+        .lean()
+        .exec(),
+      this.slotModel.countDocuments(filter).exec(),
+    ]);
+
+    const totalPages = total === 0 ? 0 : Math.ceil(total / safeLimit);
+
+    return {
+      items: docs.map((d) => this.mapSlotListItem(d)),
+      total,
+      page: safePage,
+      limit: safeLimit,
+      totalPages,
+    };
+  }
 
   async syncSlots(vendor: VendorDocument, items: SyncSlotItemDto[]): Promise<SyncSummary> {
     let created = 0;
@@ -199,6 +256,38 @@ export class SlotService {
     );
 
     return { success: true };
+  }
+
+  private mapSlotListItem(doc: {
+    _id: unknown;
+    slotId: string;
+    startTime: Date;
+    endTime: Date;
+    basePrice: number;
+    status: SlotStatus;
+    lockId: string | null;
+    lockedUntil: Date | null;
+    bookedAt: Date | null;
+    discountApplied: number | null;
+    finalPrice: number | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }): SlotListItem {
+    return {
+      _id: String(doc._id),
+      slotId: doc.slotId,
+      startTime: doc.startTime,
+      endTime: doc.endTime,
+      basePrice: doc.basePrice,
+      status: doc.status,
+      lockId: doc.lockId,
+      lockedUntil: doc.lockedUntil,
+      bookedAt: doc.bookedAt,
+      discountApplied: doc.discountApplied,
+      finalPrice: doc.finalPrice,
+      createdAt: doc.createdAt,
+      updatedAt: doc.updatedAt,
+    };
   }
 
   private async findSlot(vendor: VendorDocument, slotId: string): Promise<SlotDocument> {

@@ -1,11 +1,14 @@
 import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiSecurity, ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
 import { VendorService } from './vendor.service';
 import { CreateVendorDto } from './dto/create-vendor.dto';
 import { UpdateRulesDto } from './dto/update-rules.dto';
 import { Public } from '../common/decorators/public.decorator';
 import { GetVendor } from '../common/decorators/get-vendor.decorator';
 import { VendorDocument } from './schemas/vendor.schema';
+import { VendorCreatedResponseDto, VendorRulesUpdatedResponseDto } from '../common/swagger/api-response.models';
 
+@ApiTags('vendors')
 @Controller('vendors')
 export class VendorController {
   constructor(private readonly vendorService: VendorService) {}
@@ -13,6 +16,11 @@ export class VendorController {
   @Post()
   @Public()
   @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Register a vendor',
+    description: 'Public endpoint. Returns a new API key once — store it securely.',
+  })
+  @ApiCreatedResponse({ type: VendorCreatedResponseDto })
   async createVendor(@Body() dto: CreateVendorDto): Promise<object> {
     const vendor = await this.vendorService.create(dto);
     return {
@@ -31,6 +39,9 @@ export class VendorController {
 
   @Post('rules')
   @HttpCode(HttpStatus.OK)
+  @ApiSecurity('api-key')
+  @ApiOperation({ summary: 'Update pricing rules for the authenticated vendor' })
+  @ApiOkResponse({ type: VendorRulesUpdatedResponseDto })
   async updateRules(
     @GetVendor() vendor: VendorDocument,
     @Body() dto: UpdateRulesDto,

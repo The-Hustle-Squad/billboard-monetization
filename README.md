@@ -1,98 +1,119 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# VacantSlot API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Rule-based dynamic discounting for time-based inventory. Built with **NestJS**, **MongoDB** (inventory and vendors), and **Redis** (short-lived booking locks).
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+---
 
-## Description
+## API documentation
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+| Resource | Location |
+|----------|----------|
+| **Human-readable reference** (payloads, errors, flows) | [docs/API.md](docs/API.md) |
+| **OpenAPI UI** | `http://localhost:<PORT>/docs` |
+| **OpenAPI JSON** (codegen, Postman, Insomnia) | `http://localhost:<PORT>/docs-json` |
+
+- REST routes use the global prefix `/<API_PREFIX>/…` (default **`/api/v1`**).
+- Swagger is served at **`/docs`** and **`/docs-json`** (these paths are **not** prefixed with `API_PREFIX`).
+- **Authentication:** send `x-api-key: <vendor-api-key>` on every route **except** `POST /api/v1/vendors`. Registration returns the API key once; clients must store it securely.
+
+When you change request or response shapes, update **Swagger** (DTOs and `@Api*` decorators) and keep **[docs/API.md](docs/API.md)** in sync so frontend and integrations stay accurate.
+
+---
+
+## Prerequisites
+
+- **Node.js** 18 or newer (LTS recommended)
+- **pnpm** (package manager for this repo)
+- **MongoDB** (persistent data)
+- **Redis** (distributed locks for the lock → confirm booking flow)
+
+---
+
+## Configuration
+
+1. Copy `.env.example` to `.env`.
+2. Set at least `MONGO_URI` and Redis settings for your environment.
+
+| Variable | Purpose |
+|----------|---------|
+| `PORT` | HTTP port (default `3000`) |
+| `API_PREFIX` | Global route prefix (default `api/v1`) |
+| `MONGO_URI` | MongoDB connection string |
+| `REDIS_HOST`, `REDIS_PORT` | Redis connection |
+| `REDIS_USER`, `REDIS_PASSWORD` | Optional (ACL / cloud Redis) |
+| `REDIS_TLS` | Set `true` when the server requires TLS |
+
+**Guidelines:** never commit `.env` or real API keys. Use `.env.example` for documented placeholders only. In production, inject secrets via your host’s secret store or environment, not the repo.
+
+---
 
 ## Project setup
 
 ```bash
-$ pnpm install
+pnpm install
 ```
 
-## Compile and run the project
+Ensure MongoDB and Redis are reachable before starting the app (locks and slot flows depend on Redis).
+
+---
+
+## Build and run
 
 ```bash
-# development
-$ pnpm run start
+# development (watch)
+pnpm run start:dev
 
-# watch mode
-$ pnpm run start:dev
+# production
+pnpm run build
+pnpm run start
 
-# production mode
-$ pnpm run start:prod
+# debug + watch
+pnpm run start:debug
 ```
 
-## Run tests
+---
+
+## Repository layout (guidelines)
+
+| Area | Role |
+|------|------|
+| `src/main.ts` | Bootstrap, global prefix, `ValidationPipe`, Swagger, shutdown hooks |
+| `src/app.module.ts` | Root module, `ConfigModule`, `APP_GUARD` (`ApiKeyGuard`) |
+| `src/common/` | Cross-cutting pieces: guards, decorators (`@Public`, `@GetVendor`), `HttpExceptionFilter`, shared Swagger response DTOs |
+| `src/vendors/` | Vendor registration and pricing rules |
+| `src/slots/` | Slot CRUD/sync, pricing, lock, confirm |
+| `src/pricing/` | Pure pricing logic from slot + vendor rules |
+| `src/locks/` | Redis-backed lock acquire/release |
+| `src/analytics/` | Aggregated metrics |
+
+**Module boundaries:** feature modules own their Mongoose schemas and services. Prefer **injecting** `PricingService` and `LockService` from their modules rather than duplicating logic in controllers.
+
+**Controllers** should stay thin: validate via DTOs, call services, return typed results. **Services** own business rules and persistence.
+
+**Errors:** use Nest’s `BadRequestException`, `UnauthorizedException`, `NotFoundException`, and `ConflictException` with **stable, human-readable `message` strings**—clients and [docs/API.md](docs/API.md) rely on them.
+
+**New routes:** add `@ApiTags`, `@ApiOperation`, and response types (`@ApiOkResponse`, etc.). Protected routes use the global API key guard unless marked `@Public()`.
+
+---
+
+## DTOs and validation
+
+- Request bodies and query objects use **class-validator** decorators.
+- Global `ValidationPipe` uses **`whitelist: true`** and **`forbidNonWhitelisted: true`**—unknown JSON properties return **400**.
+- Pair DTOs with **`@nestjs/swagger`** (`@ApiProperty`, `@ApiPropertyOptional`) so `/docs` stays accurate.
+
+---
+
+## Code quality
 
 ```bash
-# unit tests
-$ pnpm run test
-
-# e2e tests
-$ pnpm run test:e2e
-
-# test coverage
-$ pnpm run test:cov
+pnpm run lint
 ```
 
-## Deployment
+ESLint is configured with TypeScript type-aware rules and Prettier. Run lint before opening a PR or merging; fix new issues in files you touch.
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+---
 
 ## License
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+UNLICENSED (private).

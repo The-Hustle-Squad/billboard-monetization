@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { APP_GUARD } from '@nestjs/core';
 import { AuthModule } from './auth/auth.module';
@@ -11,6 +12,7 @@ import { ApiKeyGuard } from './common/guards/api-key.guard';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }),
     MongooseModule.forRoot(
       process.env.MONGO_URI ??
         'mongodb+srv://root:root@miraki-training.gn5hy.mongodb.net/lead-crud-sprint-1?retryWrites=true&w=majority&appName=Miraki-Training',

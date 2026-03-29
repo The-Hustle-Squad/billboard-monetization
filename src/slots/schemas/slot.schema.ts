@@ -52,3 +52,4 @@ export const SlotSchema = SchemaFactory.createForClass(Slot);
 
 SlotSchema.index({ vendorId: 1, slotId: 1 }, { unique: true });
 SlotSchema.index({ vendorId: 1, status: 1 });
+SlotSchema.index({ vendorId: 1, startTime: -1 });
